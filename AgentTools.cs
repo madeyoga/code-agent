@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 
 namespace DotNuxt.Tools;
 
@@ -66,17 +67,23 @@ public static class AgentTools
         return string.Join("\n", catalog);
     }
 
-    [Description("Execute a shell command in the current directory and return the output.")]
+    [Description("Execute a shell command in the current directory and return the output. Always returns the platform (Windows/Linux/macOS) so you know what kind of commands to use.")]
     public static string ExecuteShellCommand(
         [Description("The command to execute")] string command,
         [Description("Optional working directory for the command")] string? workdir = null)
     {
+        var platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Windows"
+            : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "macOS"
+            : "Linux";
+
         try
         {
             var processInfo = new System.Diagnostics.ProcessStartInfo
             {
-                FileName = "/bin/bash",
-                Arguments = $"-c \"{command}\"",
+                FileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "cmd.exe" : "/bin/bash",
+                    Arguments = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) 
+                        ? $"/c \"{command}\"" 
+                        : $"-c \"{command}\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -98,21 +105,21 @@ public static class AgentTools
 
             if (process.ExitCode != 0)
             {
-                return $"Error (Exit Code {process.ExitCode}):\n{error}";
+                return $"Platform: {platform}\nError (Exit Code {process.ExitCode}):\n{error}";
             }
 
-            return string.IsNullOrEmpty(output) ? "(Command executed successfully with no output)" : output;
+            return $"Platform: {platform}\n{ (string.IsNullOrEmpty(output) ? "(Command executed successfully with no output)" : output) }";
         }
         catch (Exception ex)
         {
-            return $"Error executing command: {ex.Message}";
+            return $"Platform: {platform}\nError executing command: {ex.Message}";
         }
     }
 
     [Description("Create a new file or overwrite an existing one with the specified content. Returns success message and path of created/updated file.")]
     public static string CreateFileOrOverwrite(
         [Description("Path where to create/write the file (including filename)")] string filePath,
-        [Description("Content/JSON/YAML/text/etc to write into the new or existing file")] string content)
+        [Description("Code string to write into the new or existing file. literal file contents. Do not JSON-escape, C#-escape, or Python-escape the file contents. Pass the exact bytes that should appear in the file.")] string content)
     {
         try
         {
