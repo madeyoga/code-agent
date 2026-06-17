@@ -13,78 +13,104 @@ Console.WriteLine($"Model: {modelId}");
 Console.WriteLine($"Skills directory: {skillsDir}");
 Console.WriteLine("Type 'exit' to quit, 'skills' to list, 'plugins' to list plugins.\n");
 
-var plannerAgent = PlannerAgentFactory.Create();
-var routerAgent = PlannerAgentFactory.CreateRouterAgent();
-var builderAgent = BuilderAgentFactory.Create(skillsDir);
-var questionAgent = BuilderAgentFactory.CreateQuestionAgent();
-var routerExecutor = new RouterExecutor(routerAgent);
-var codePlannerExecutor = new CodePlannerExecutor(plannerAgent);
-var codeBuilderExecutor = new CodeBuilderExecutor(builderAgent);
-var directAnswerExecutor = new DirectAnswerExecutor(questionAgent);
-
-var workflow = new WorkflowBuilder(routerExecutor)
-    .AddSwitch(routerExecutor, sw => sw
-        .AddCase<RouterDecision>(d => d.IsCodeChange, codePlannerExecutor)
-        .WithDefault(directAnswerExecutor))
-    .AddEdge(codePlannerExecutor, codeBuilderExecutor)
-    .Build();
-
-while (true)
+static async Task RunWorkflow(string skillsDir)
 {
-    Console.Write("> ");
-    var input = Console.ReadLine();
-    if (string.IsNullOrWhiteSpace(input)) continue;
-    if (input.Equals("exit", StringComparison.OrdinalIgnoreCase)) break;
-    if (input.Equals("skills", StringComparison.OrdinalIgnoreCase)) { ListSkills(skillsDir); continue; }
-    if (input.Equals("plugins", StringComparison.OrdinalIgnoreCase)) { ListPlugins(skillsDir); continue; }
+    var plannerAgent = PlannerAgentFactory.Create();
+    var routerAgent = PlannerAgentFactory.CreateRouterAgent();
+    var builderAgent = BuilderAgentFactory.Create(skillsDir);
+    var questionAgent = BuilderAgentFactory.CreateQuestionAgent();
+    var routerExecutor = new RouterExecutor(routerAgent);
+    var codePlannerExecutor = new CodePlannerExecutor(plannerAgent);
+    var codeBuilderExecutor = new CodeBuilderExecutor(builderAgent);
+    var directAnswerExecutor = new DirectAnswerExecutor(questionAgent);
 
-    StreamingRun run = await InProcessExecution.RunStreamingAsync(workflow, input);
-    await foreach (WorkflowEvent evt in run.WatchStreamAsync())
+    var workflow = new WorkflowBuilder(routerExecutor)
+        .AddSwitch(routerExecutor, sw => sw
+            .AddCase<RouterDecision>(d => d.IsCodeChange, codePlannerExecutor)
+            .WithDefault(directAnswerExecutor))
+        .AddEdge(codePlannerExecutor, codeBuilderExecutor)
+        .Build();
+
+    while (true)
     {
-        switch (evt)
+        Console.Write("> ");
+        var input = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(input)) continue;
+        if (input.Equals("exit", StringComparison.OrdinalIgnoreCase)) break;
+        if (input.Equals("skills", StringComparison.OrdinalIgnoreCase)) { ListSkills(skillsDir); continue; }
+        if (input.Equals("plugins", StringComparison.OrdinalIgnoreCase)) { ListPlugins(skillsDir); continue; }
+
+        StreamingRun run = await InProcessExecution.RunStreamingAsync(workflow, input);
+        await foreach (WorkflowEvent evt in run.WatchStreamAsync())
         {
-            case WorkflowStartedEvent:
-                Console.WriteLine("Workflow started");
-                break;
+            switch (evt)
+            {
+                case WorkflowStartedEvent:
+                    Console.WriteLine("Workflow started");
+                    break;
 
-            case WorkflowOutputEvent outputEvt:
-                Console.WriteLine($"Workflow output: {outputEvt.Data}");
-                break;
+                case WorkflowOutputEvent outputEvt:
+                    Console.WriteLine($"Workflow output: {outputEvt.Data}");
+                    break;
 
-            case WorkflowErrorEvent errorEvt:
-                Console.WriteLine($"Workflow error: {errorEvt.Exception?.Message}");
-                break;
+                case WorkflowErrorEvent errorEvt:
+                    Console.WriteLine($"Workflow error: {errorEvt.Exception?.Message}");
+                    break;
 
-            case WorkflowWarningEvent warningEvt:
-                Console.WriteLine($"Workflow warning: {warningEvt.Data}");
-                break;
+                case WorkflowWarningEvent warningEvt:
+                    Console.WriteLine($"Workflow warning: {warningEvt.Data}");
+                    break;
 
-            case ExecutorInvokedEvent invokeEvt:
-                Console.WriteLine($"{invokeEvt.ExecutorId} invoked");
-                break;
+                case ExecutorInvokedEvent invokeEvt:
+                    Console.WriteLine($"{invokeEvt.ExecutorId} invoked");
+                    break;
 
-            case ExecutorCompletedEvent executorComplete:
-                Console.WriteLine($"{executorComplete.ExecutorId} complete: {executorComplete.Data}");
-                break;
+                case ExecutorCompletedEvent executorComplete:
+                    Console.WriteLine($"{executorComplete.ExecutorId} complete: {executorComplete.Data}");
+                    break;
 
-            case ExecutorFailedEvent failedEvt:
-                Console.WriteLine($"{failedEvt.ExecutorId} failed: {failedEvt.Data}");
-                break;
+                case ExecutorFailedEvent failedEvt:
+                    Console.WriteLine($"{failedEvt.ExecutorId} failed: {failedEvt.Data}");
+                    break;
 
-            case CodePlannerProgressEvent plannerProgress:
-                Console.WriteLine($"[Planner] {plannerProgress.Data}");
-                break;
+                case CodePlannerProgressEvent plannerProgress:
+                    Console.WriteLine($"[Planner] {plannerProgress.Data}");
+                    break;
 
-            case CodeBuilderProgressEvent builderProgress:
-                Console.WriteLine($"[Builder] {builderProgress.Data}");
-                break;
+                case CodeBuilderProgressEvent builderProgress:
+                    Console.WriteLine($"[Builder] {builderProgress.Data}");
+                    break;
 
-            case RouterProgressEvent routerProgress:
-                Console.WriteLine($"[Router] {routerProgress.Data}");
-                break;
+                case RouterProgressEvent routerProgress:
+                    Console.WriteLine($"[Router] {routerProgress.Data}");
+                    break;
+            }
         }
     }
 }
+
+static async Task RunWithLoop(string skillsDir)
+{
+    var builderAgent = BuilderAgentFactory.Create(skillsDir);
+    var session = await builderAgent.CreateSessionAsync();
+    while (true)
+    {
+        Console.Write("> ");
+        var input = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(input)) continue;
+        if (input.Equals("exit", StringComparison.OrdinalIgnoreCase)) break;
+        if (input.Equals("skills", StringComparison.OrdinalIgnoreCase)) { ListSkills(skillsDir); continue; }
+        if (input.Equals("plugins", StringComparison.OrdinalIgnoreCase)) { ListPlugins(skillsDir); continue; }
+
+        await foreach (var update in builderAgent.RunStreamingAsync(input, session))
+        {
+            Console.Write(update);
+        }
+        Console.WriteLine("\n");
+    }
+}
+
+await RunWithLoop(skillsDir);
 
 static void ListSkills(string skillsDir)
 {
