@@ -17,7 +17,6 @@ public class PlannerAgentFactory
                 {
                     Instructions = BuildSystemPrompt(),
                     Tools = [
-                        AIFunctionFactory.Create(AgentTools.GetSkill),
                         AIFunctionFactory.Create(AgentTools.Grep),
                         AIFunctionFactory.Create(AgentTools.ReadFile),
                         AIFunctionFactory.Create(AgentTools.ExecuteShellCommand)

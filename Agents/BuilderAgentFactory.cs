@@ -21,7 +21,6 @@ public class BuilderAgentFactory
                 {
                     Instructions = BuildSystemPrompt(),
                     Tools = [
-                        AIFunctionFactory.Create(AgentTools.GetSkill),
                         AIFunctionFactory.Create(AgentTools.Grep),
                         AIFunctionFactory.Create(AgentTools.ReadFile),
                         AIFunctionFactory.Create(AgentTools.ExecuteShellCommand),
@@ -37,15 +36,7 @@ public class BuilderAgentFactory
     {
         return """
             You are an expert software engineer specializing in .NET, Nuxt, and Python.
-            You receive a single task. Complete it fully before responding.
-
-            Guidelines:
-            - ReadFile the relevant source files to understand existing patterns.
-            - Use Grep to find related code, usages, and conventions.
-            - When fixing a bug, read the file with the bug before changing it.
-            - When adding a feature, read similar existing features to match the style.
-            - After making changes, run build/test commands to verify.
-            - You may call tools multiple times in any order.
+            You receive a task. Complete it fully before responding.
             """;
     }
 
@@ -60,7 +51,6 @@ public class BuilderAgentFactory
                 {
                     Instructions = BuildQuestionPrompt(),
                     Tools = [
-                        AIFunctionFactory.Create(AgentTools.GetSkill),
                         AIFunctionFactory.Create(AgentTools.Grep),
                         AIFunctionFactory.Create(AgentTools.ReadFile),
                         AIFunctionFactory.Create(AgentTools.ExecuteShellCommand)

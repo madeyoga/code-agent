@@ -39,7 +39,7 @@ public static class AgentTools
 
     // ---- Agent-facing tool methods ----
 
-    [Description("Read the content of a file.")]
+    [Description("Return the full text content of a file as a string. If the file doesn't exist, return an error message instead of throwing.")]
     public static string ReadFile(
         [Description("Absolute path to the file")] string filePath)
     {
@@ -54,7 +54,7 @@ public static class AgentTools
         }
     }
 
-    [Description("Search for a pattern in a file using regular expressions.")]
+    [Description("Search for a regex pattern within a single file and return matching lines with their line numbers.")]
     public static string Grep(
         [Description("Regex pattern to search for")] string pattern,
         [Description("File path to search in")] string filePath)
@@ -77,9 +77,9 @@ public static class AgentTools
         }
     }
 
-    [Description("Load the content of a .NET skill by its path. List available skills with 'skills' or 'plugins'.")]
+    [Description("Return a catalog of available skills matching the given plugin path (e.g., 'dotnet/csharp-scripts'). Lists skill names found under that plugin directory, not their content.")]
     public static string GetSkill(
-        [Description("Skill path like 'dotnet/csharp-scripts' or 'dotnet-aspnetcore/dotnet-webapi'")] string path)
+        [Description("Plugin path like 'dotnet/csharp-scripts' or 'dotnet-aspnetcore/dotnet-webapi'")] string path)
     {
         var skillsDir = Path.Combine(AppContext.BaseDirectory, "skills");
         if (!Directory.Exists(skillsDir)) return "No skills installed.";
