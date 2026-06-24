@@ -5,6 +5,12 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>dotnuxt</ToolCommandName>
+    <PackageId>dotnuxt</PackageId>
+    <Version>0.1.0</Version>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,8 +23,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="skills/**/*" CopyToOutputDirectory="PreserveNewest" LinkBase="skills/" />
-    <Content Include=".agents/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <Content Include="skills/**/*"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             LinkBase="skills/" />
+    <Content Include=".agents/**/*"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

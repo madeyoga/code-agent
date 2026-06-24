@@ -2,14 +2,17 @@
 using DotNuxt;
 using Microsoft.Agents.AI.Workflows;
 
-Env.Load();
+ApplyWorkingDirectory(args);
+LoadEnvironment();
 
-var modelId = Env.GetString("MODEL_ID", null) ?? throw new InvalidOperationException("NULL model id");
+var modelId = Env.GetString("MODEL_ID", "qwen3.6:35b-a3b");
+var workspaceDir = Directory.GetCurrentDirectory();
 
 var skillsDir = Path.Combine(AppContext.BaseDirectory, "skills");
 
 Console.WriteLine("dotnuxt - .NET Coding Agent (Microsoft Agent Framework)");
 Console.WriteLine($"Model: {modelId}");
+Console.WriteLine($"Workspace: {workspaceDir}");
 Console.WriteLine($"Skills directory: {skillsDir}");
 Console.WriteLine();
 Console.WriteLine("Usage: /build <prompt>  — Write code, create files, build projects");
@@ -30,9 +33,9 @@ while (true)
     if (string.IsNullOrWhiteSpace(input)) continue;
 
     var trimmed = input.Trim();
-    if (trimmed.Equals("exit", StringComparison.OrdinalIgnoreCase)) break;
-    if (trimmed.Equals("skills", StringComparison.OrdinalIgnoreCase)) { ListSkills(skillsDir); continue; }
-    if (trimmed.Equals("plugins", StringComparison.OrdinalIgnoreCase)) { ListPlugins(skillsDir); continue; }
+    if (IsCommand(trimmed, "exit")) break;
+    if (IsCommand(trimmed, "skills")) { ListSkills(skillsDir); continue; }
+    if (IsCommand(trimmed, "plugins")) { ListPlugins(skillsDir); continue; }
 
     // Parse command prefix
     var parts = trimmed.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
@@ -85,6 +88,12 @@ static void ListSkills(string skillsDir)
     Console.WriteLine();
 }
 
+static bool IsCommand(string input, string command)
+{
+    return input.Equals(command, StringComparison.OrdinalIgnoreCase)
+        || input.Equals($"/{command}", StringComparison.OrdinalIgnoreCase);
+}
+
 static void ListPlugins(string skillsDir)
 {
     if (!Directory.Exists(skillsDir)) { Console.WriteLine("No skills directory.\n"); return; }
@@ -98,3 +107,33 @@ static void ListPlugins(string skillsDir)
     Console.WriteLine();
 }
 
+static void ApplyWorkingDirectory(string[] args)
+{
+    var cwdIndex = Array.FindIndex(args, arg => arg.Equals("--cwd", StringComparison.OrdinalIgnoreCase));
+    if (cwdIndex < 0)
+        return;
+
+    if (cwdIndex + 1 >= args.Length || string.IsNullOrWhiteSpace(args[cwdIndex + 1]))
+        throw new ArgumentException("--cwd requires a directory path.");
+
+    var requestedPath = Path.GetFullPath(args[cwdIndex + 1]);
+    if (!Directory.Exists(requestedPath))
+        throw new DirectoryNotFoundException($"Workspace directory not found: {requestedPath}");
+
+    Directory.SetCurrentDirectory(requestedPath);
+}
+
+static void LoadEnvironment()
+{
+    var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    if (!string.IsNullOrWhiteSpace(homeDir))
+        LoadEnvFileIfPresent(Path.Combine(homeDir, ".dotnuxt", ".env"));
+
+    LoadEnvFileIfPresent(Path.Combine(Directory.GetCurrentDirectory(), ".env"));
+}
+
+static void LoadEnvFileIfPresent(string path)
+{
+    if (File.Exists(path))
+        Env.Load(path);
+}
