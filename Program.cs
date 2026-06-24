@@ -12,68 +12,67 @@ Console.WriteLine("dotnuxt - .NET Coding Agent (Microsoft Agent Framework)");
 Console.WriteLine($"Model: {modelId}");
 Console.WriteLine($"Skills directory: {skillsDir}");
 Console.WriteLine();
+Console.WriteLine("Usage: /build <prompt>  — Write code, create files, build projects");
+Console.WriteLine("       /ask   <prompt>  — Answer questions, explain concepts, provide guidance");
+Console.WriteLine("       /skills          — List available skills");
+Console.WriteLine("       /plugins         — List available plugins");
+Console.WriteLine("       /exit            — Quit\n");
 
-// --- Menu prompt ---
-Console.Write("Choose agent mode: [B] Coding/Builder only, [A] Ask/question (default B): ");
-var choice = Console.ReadLine()?.Trim().ToUpperInvariant() ?? "C";
-if (!choice.StartsWith('B') && !choice.StartsWith('A'))
+// --- Single main prompt loop ---
+var builderAgent = BuilderAgentFactory.Create(skillsDir);
+var session = await builderAgent.CreateSessionAsync();
+var questionAgent = BuilderAgentFactory.CreateQuestionAgent();
+
+while (true)
 {
-    Console.WriteLine("Invalid choice. Defaulting to Coding mode.");
-    choice = "B";
-}
+    Console.Write("> ");
+    var input = Console.ReadLine();
+    if (string.IsNullOrWhiteSpace(input)) continue;
 
-Console.WriteLine();
+    var trimmed = input.Trim();
+    if (trimmed.Equals("exit", StringComparison.OrdinalIgnoreCase)) break;
+    if (trimmed.Equals("skills", StringComparison.OrdinalIgnoreCase)) { ListSkills(skillsDir); continue; }
+    if (trimmed.Equals("plugins", StringComparison.OrdinalIgnoreCase)) { ListPlugins(skillsDir); continue; }
 
-// --- Route to selected agent mode ---
-switch (choice[0])
-{
-    case 'B':
-        await RunBuilderMode(skillsDir);
-        break;
-    case 'A':
-        await RunAskMode();
-        break;
-}
+    // Parse command prefix
+    var parts = trimmed.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+    var command = parts[0].ToLowerInvariant();
+    var prompt = parts.Length > 1 ? parts[1] : string.Empty;
 
-// --- Builder-only mode: direct builder loop ---
-static async Task RunBuilderMode(string skillsDir)
-{
-    var builderAgent = BuilderAgentFactory.Create(skillsDir);
-    var session = await builderAgent.CreateSessionAsync();
-    while (true)
+    switch (command)
     {
-        Console.Write("> ");
-        var input = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(input)) continue;
-        if (input.Equals("exit", StringComparison.OrdinalIgnoreCase)) break;
-        if (input.Equals("skills", StringComparison.OrdinalIgnoreCase)) { ListSkills(skillsDir); continue; }
-        if (input.Equals("plugins", StringComparison.OrdinalIgnoreCase)) { ListPlugins(skillsDir); continue; }
+        case "/build":
+            if (string.IsNullOrWhiteSpace(prompt))
+            {
+                Console.WriteLine("Error: /build requires a prompt. Example: /build Create a new ASP.NET Core controller");
+                continue;
+            }
+            await foreach (var update in builderAgent.RunStreamingAsync(prompt, session))
+            {
+                Console.Write(update);
+            }
+            Console.WriteLine("\n");
+            break;
 
-        await foreach (var update in builderAgent.RunStreamingAsync(input, session))
-        {
-            Console.Write(update);
-        }
-        Console.WriteLine("\n");
-    }
-}
+        case "/ask":
+            if (string.IsNullOrWhiteSpace(prompt))
+            {
+                Console.WriteLine("Error: /ask requires a prompt. Example: /ask What is the tech stack of this project?");
+                continue;
+            }
+            Console.WriteLine("\n---");
+            await foreach (var update in questionAgent.RunStreamingAsync(prompt))
+            {
+                Console.Write(update);
+            }
+            Console.WriteLine("\n---\n");
+            break;
 
-// --- Ask/question mode: direct answer executor only ---
-static async Task RunAskMode()
-{
-    var questionAgent = BuilderAgentFactory.CreateQuestionAgent();
-    while (true)
-    {
-        Console.Write("> ");
-        var input = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(input)) continue;
-        if (input.Equals("exit", StringComparison.OrdinalIgnoreCase)) break;
-
-        Console.WriteLine("\n---");
-        await foreach (var update in questionAgent.RunStreamingAsync(input))
-        {
-            Console.Write(update);
-        }
-        Console.WriteLine("\n---\n");
+        default:
+            Console.WriteLine("Error: Unknown or missing command prefix. Use /build, /ask, /skills, /plugins, or /exit.");
+            Console.WriteLine("Usage: /build <prompt>  — Write code, create files, build projects");
+            Console.WriteLine("       /ask   <prompt>  — Answer questions, explain concepts, provide guidance");
+            break;
     }
 }
 

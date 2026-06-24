@@ -24,7 +24,11 @@ public class BuilderAgentFactory
                         AIFunctionFactory.Create(AgentTools.Grep),
                         AIFunctionFactory.Create(AgentTools.ReadFile),
                         AIFunctionFactory.Create(AgentTools.ExecuteShellCommand),
-                        AIFunctionFactory.Create(AgentTools.CreateFileOrOverwrite)
+                        AIFunctionFactory.Create(AgentTools.CreateFileOrOverwrite),
+                        AIFunctionFactory.Create(AgentTools.ListDirectory),
+                        AIFunctionFactory.Create(AgentTools.FindFiles),
+                        AIFunctionFactory.Create(AgentTools.DotNetBuild),
+                        AIFunctionFactory.Create(AgentTools.DotNetTest)
                     ],
                 },
                 AIContextProviders = [skillsProvider]
@@ -35,8 +39,24 @@ public class BuilderAgentFactory
     private static string BuildSystemPrompt()
     {
         return """
-            You are an expert software engineer specializing in .NET, Nuxt, and Python.
-            You receive a task. Complete it fully before responding.
+            You are an expert .NET developer. Follow these rules strictly:
+
+            WORKFLOW RULES:
+            1. ALWAYS read a file before modifying it. never guess at existing code
+            2. Use ListDirectory or FindFiles to discover project structure before writing files
+
+            FILE RULES:
+            6. Never delete files without creating a backup first (copy to .bak)
+            7. When creating new files, follow existing project conventions (naming, namespaces, formatting)
+            8. Show your plan before executing multi-step changes
+
+            ERROR HANDLING:
+            9. If you encounter an error, analyze it carefully and retry with the fix
+            10. Never ignore compiler errors or warnings that indicate real problems
+
+            OUTPUT FORMAT:
+            11. When completing a task, summarize what files were created/modified
+            12. Report build/test results clearly (SUCCEEDED/FAILED)
             """;
     }
 

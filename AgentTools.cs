@@ -101,6 +101,60 @@ public static class AgentTools
         return string.Join("\n", catalog);
     }
 
+    [Description("List files and directories recursively under the given path. Returns one entry per line with indentation showing depth. Use this to explore project structure before making changes.")]
+    public static string ListDirectory(
+        [Description("Absolute path to the directory to list")] string path,
+        [Description("Whether to recurse into subdirectories (default: true)")] bool recursive = true)
+    {
+        try
+        {
+            if (!Directory.Exists(path)) return $"Error: Directory '{path}' not found.";
+
+            var lines = new List<string>();
+            void Walk(string dir, int depth)
+            {
+                var indent = new string(' ', depth * 2);
+                lines.Add($"{indent}[DIR] {Path.GetFileName(dir) ?? dir}");
+                foreach (var sub in Directory.GetDirectories(dir))
+                    Walk(sub, depth + 1);
+                foreach (var file in Directory.GetFiles(dir))
+                    lines.Add($"{indent}    [FILE] {Path.GetFileName(file)}");
+            }
+
+            Walk(path, 0);
+            return string.Join("\n", lines);
+        }
+        catch (Exception ex)
+        {
+            return $"Error listing directory: {ex.Message}";
+        }
+    }
+
+    [Description("Find files matching a glob pattern (e.g., '*.cs', '**/Program.cs') under the given root path. Returns matching file paths, one per line. Use this to locate specific files in a project.")]
+    public static string FindFiles(
+        [Description("Glob pattern like '*.cs' or '**/*.csproj'")] string pattern,
+        [Description("Root directory to search under")] string rootPath)
+    {
+        try
+        {
+            if (!Directory.Exists(rootPath)) return $"Error: Directory '{rootPath}' not found.";
+
+            var results = new List<string>();
+            // Handle ** patterns by converting to .NET glob
+            var searchOption = pattern.Contains("**") ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+            var fileNamePattern = pattern.Replace("**/", "").Replace("*/", "");
+
+            foreach (var file in Directory.GetFiles(rootPath, fileNamePattern, searchOption))
+                results.Add(file);
+
+            return results.Any() ? string.Join("\n", results) : "No files found.";
+        }
+        catch (Exception ex)
+        {
+            return $"Error finding files: {ex.Message}";
+        }
+    }
+
     // -------------------------------------------------------------------------
     // ExecuteShellCommand — allowlist + cross-platform aliases
     // -------------------------------------------------------------------------
@@ -216,6 +270,76 @@ public static class AgentTools
             return $"Error creating/updating file '{filePath}': {ex.Message}";
         }
     }
+
+    [Description("Build the .NET solution or project at the given path and return compilation results. Use this AFTER making code changes to verify the build succeeds. Returns build output with any errors/warnings.")]
+    public static string DotNetBuild(
+        [Description("Path to .sln, .csproj, or directory containing a solution (default: current directory)")] string? path = null)
+    {
+        var target = path ?? Directory.GetCurrentDirectory();
+        if (!Directory.Exists(target)) return $"Error: Path '{target}' not found.";
+
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"build \"{target}\" --no-restore",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            using var p = new System.Diagnostics.Process { StartInfo = psi };
+            p.Start();
+            var output = p.StandardOutput.ReadToEnd();
+            var error = p.StandardError.ReadToEnd();
+            p.WaitForExit();
+
+            var isSucceeded = output.Contains("Build succeeded") || error.Contains("Build succeeded");
+            var summary = isSucceeded ? "BUILD SUCCEEDED" : $"BUILD FAILED (exit code {p.ExitCode})";
+            return $"{summary}\n{output}{error}";
+        }
+        catch (Exception ex)
+        {
+            return $"Error running dotnet build: {ex.Message}";
+        }
+    }
+
+    [Description("Run unit tests for the project at the given path and return test results. Use this AFTER code changes to verify nothing is broken.")]
+    public static string DotNetTest(
+        [Description("Path to .sln, .csproj, or directory (default: current directory)")] string? path = null)
+    {
+        var target = path ?? Directory.GetCurrentDirectory();
+        if (!Directory.Exists(target)) return $"Error: Path '{target}' not found.";
+
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"test \"{target}\" --no-build --verbosity minimal",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            using var p = new System.Diagnostics.Process { StartInfo = psi };
+            p.Start();
+            var output = p.StandardOutput.ReadToEnd();
+            var error = p.StandardError.ReadToEnd();
+            p.WaitForExit();
+
+            var isSucceeded = output.Contains("Passed") && !output.Contains("Failed");
+            var summary = isSucceeded ? "TESTS PASSED" : $"TESTS FAILED (exit code {p.ExitCode})";
+            return $"{summary}\n{output}{error}";
+        }
+        catch (Exception ex)
+        {
+            return $"Error running dotnet test: {ex.Message}";
+        }
+    }
 }
 
 // ========================================================================
@@ -260,7 +384,7 @@ public static partial class ShellExecExtractor
                 return null;
 
             // Split on whitespace to get the first real word
-            var words = token.Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
+            var words = token.Split(Array.Empty<char>(), StringSplitOptions.RemoveEmptyEntries);
             if (words.Length == 0)
                 return null;
 
